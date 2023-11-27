@@ -17,29 +17,35 @@ class ProcessorDocument:
         document_analysis_client = DocumentAnalysisClient(
             endpoint=self.__endpoint, credential=AzureKeyCredential(self.__api_key)
         )
-        poller = document_analysis_client.begin_analyze_document("prebuilt-document", bytes_data)
+        poller = document_analysis_client.begin_analyze_document("prebuilt-document", bytes_data, pages="1-2")
         result = poller.result()
 
         return result
 
-    def format_text_extracted(self, document_analyze):
+    def format_text_extracted(self, document_analyze, number_part):
         body_value = ""
 
-        for table in document_analyze.tables:
-            table_value = self.__get_table_values(table)
+        for page in document_analyze.pages:
+            if number_part == 0:
+                for table in document_analyze.tables:
+                    table_value = self.__get_table_values(table)
 
-            bounding_regions = table.bounding_regions[0]
-            polygon_table = bounding_regions.polygon
+                    bounding_regions = table.bounding_regions[0]
+                    polygon_table = bounding_regions.polygon
 
-            for page in document_analyze.pages:
-                for line in page.lines:
-                    if self.__has_overlap(polygon_table, line.polygon):
-                        continue
+                    for line in page.lines:
+                        if self.__has_overlap(polygon_table, line.polygon):
+                            continue
 
-                    body_value += f"{line.content}\n"
+                        body_value += f"{line.content}\n"
 
-                    if re.search(r"^Cronograma\s+abaixo:$", line.content, flags=re.I | re.M):
-                        body_value += f"\n{table_value}\n\n"
+                        if re.search(r"^Cronograma\s+abaixo:$", line.content, flags=re.I | re.M):
+                            body_value += f"\n{table_value}\n\n"
+
+                continue
+
+            for line in page.lines:
+                body_value += f"{line.content}\n"
 
         return f"{body_value}"
 
